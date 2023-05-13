@@ -1,5 +1,13 @@
 .container {
-  margin: 0 auto;
-  height: 100vh;
-  min-height: 100vh;
+  margin: calc(50vh - 42svmin) auto;
+  height: 84svmin;
+  width: 80vmin;
+  border: solid 1px #0003;
+  display: grid;
+  grid-template: 1fr 4fr / 2fr 5fr 2fr;
+  grid-template-areas:
+    'hover board next'
+    'info board next';
+  gap: 2vmin;
+  padding: 2vmin;
 }
