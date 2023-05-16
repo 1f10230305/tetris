@@ -1,0 +1,40 @@
+.board {
+  grid-area: board;
+  display: grid;
+  grid-template: 0.2fr repeat(20, 1fr) / repeat(10, 1fr);
+  height: 100%;
+  background-color: #0003;
+  padding: 1px;
+}
+
+.cell {
+  background-color: #fff;
+}
+
+.color-1 {
+  background-color: #fbdb43;
+}
+
+.color-2 {
+  background-color: #37bcec;
+}
+
+.color-3 {
+  background-color: #93338f;
+}
+
+.color-4 {
+  background-color: #e98e30;
+}
+
+.color-5 {
+  background-color: #1c76bb;
+}
+
+.color-6 {
+  background-color: #7dba50;
+}
+
+.color-7 {
+  background-color: #cc2828;
+}
