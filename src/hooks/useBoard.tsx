@@ -1,17 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createArray } from '../utils/createArray';
 import { mino } from '../utils/mino';
+import { turnArray } from '../utils/turnArray';
+import { useTurn } from './useTurn';
 
 export const useBoard = () => {
   const [stockedBlocks, setStockedBlocks] = useState(createArray(10, 24, 0));
   const [floatingBlock, setFloatingBlock] = useState({
     ...mino[0],
+    startTurn: 0,
     position: {
       top: 1,
       left: 3,
     },
     rotate: 0,
   });
+
+  const turnCount: number = useTurn();
+
+  const topPosition: number = useMemo(() => {
+    return turnCount - floatingBlock.startTurn + floatingBlock.position.top;
+  }, [floatingBlock, turnCount]);
 
   const filledLine: number[] = useMemo(() => {
     const filledLine: number[] = [];
@@ -20,18 +29,6 @@ export const useBoard = () => {
     }
     return filledLine;
   }, [stockedBlocks]);
-
-  // const currentStockedBlocks: number[][] = useMemo(() => {
-  //   const newBlocks: number[][] = JSON.parse(JSON.stringify(stockedBlocks));
-  //   let i = 0;
-  //   for (const row of newBlocks) {
-  //     if (row.every((value) => value > 0)) {
-  //       newBlocks.splice(i);
-  //       i++;
-  //     }
-  //   }
-  //   return newBlocks;
-  // }, [stockedBlocks]);
 
   const floatingBlockSize: number = useMemo(() => {
     return floatingBlock.shape.length;
@@ -44,102 +41,122 @@ export const useBoard = () => {
         board[y - 3][x] = stockedBlocks[y][x];
       }
     }
-    const floatingBlockSize: number = floatingBlock.shape.length;
     for (let i = 0; i < floatingBlockSize ** 2; i++) {
       const x: number = i % floatingBlockSize;
       const y: number = Math.floor(i / floatingBlockSize);
-      if (board[y + floatingBlock.position.top] === undefined) {
+      if (board[y + topPosition] === undefined) {
         break;
       }
-      if (!board[y + floatingBlock.position.top][x + floatingBlock.position.left]) {
-        board[y + floatingBlock.position.top][x + floatingBlock.position.left] = floatingBlock
-          .shape[y][x]
+      if (!board[y + topPosition][x + floatingBlock.position.left]) {
+        board[y + topPosition][x + floatingBlock.position.left] = turnArray(
+          floatingBlock.shape,
+          floatingBlock.rotate
+        )[y][x]
           ? floatingBlock.type
           : 0;
       }
     }
     return board;
-  }, [floatingBlock, stockedBlocks]);
+  }, [floatingBlock, stockedBlocks, topPosition, floatingBlockSize]);
 
-  const canPutDown: boolean = useMemo(() => {
-    const bottomFloatingBlock: number[][] = [...floatingBlock.shape];
-    for (let i = 0; i < floatingBlockSize ** 2; i++) {
-      const x: number = i % floatingBlockSize;
-      const y: number = Math.floor(i / floatingBlockSize);
-      const terms: boolean[] = [
-        floatingBlock.shape[y][x] === 1,
-        floatingBlock.shape[y + 1] !== undefined && floatingBlock.shape[y + 1][x] === 1,
-      ];
-      if (terms.every((v) => v)) {
-        bottomFloatingBlock[y][x] === 0;
+  const canMove = useCallback(
+    (toX: -1 | 0 | 1, toY: -1 | 0 | 1): boolean => {
+      const edgeFloatingBlock: number[][] = turnArray(floatingBlock.shape, floatingBlock.rotate);
+      for (let i = 0; i < floatingBlockSize ** 2; i++) {
+        const x: number = i % floatingBlockSize;
+        const y: number = Math.floor(i / floatingBlockSize);
+        const terms: boolean[] = [
+          turnArray(floatingBlock.shape, floatingBlock.rotate)[y][x] === 1,
+          turnArray(floatingBlock.shape, floatingBlock.rotate)[y + toY] !== undefined &&
+            turnArray(floatingBlock.shape, floatingBlock.rotate)[y + toY][x + toX] === 1,
+        ];
+        if (terms.every((v) => v)) {
+          edgeFloatingBlock[y][x] === 0;
+        }
       }
-    }
-    let canPutDown = true;
-    for (let i = 0; i < floatingBlockSize ** 2; i++) {
-      const x: number = i % floatingBlockSize;
-      const y: number = Math.floor(i / floatingBlockSize);
-      const terms: boolean[] = [
-        bottomFloatingBlock[y][x] === 1,
-        board[y + floatingBlock.position.top + 1] === undefined ||
-          stockedBlocks[y + floatingBlock.position.top + 4][x + floatingBlock.position.left] !== 0,
-      ];
-      if (terms.every((v) => v)) {
-        canPutDown = false;
-        break;
+      for (let i = 0; i < floatingBlockSize ** 2; i++) {
+        const x: number = i % floatingBlockSize;
+        const y: number = Math.floor(i / floatingBlockSize);
+        const terms: boolean[] = [
+          edgeFloatingBlock[y][x] === 1,
+          board[y + topPosition + toY] === undefined ||
+            stockedBlocks[y + topPosition + toY + 3][x + floatingBlock.position.left + toX] !== 0,
+        ];
+        if (terms.every((v) => v)) {
+          return false;
+        }
       }
-    }
-    return canPutDown;
-  }, [floatingBlock, floatingBlockSize, board, stockedBlocks]);
+      return true;
+    },
+    [board, floatingBlock, floatingBlockSize, stockedBlocks, topPosition]
+  );
 
-  const stockBlock = () => {
+  const stockBlock = useCallback(() => {
     const newStockedBlocks: number[][] = [...stockedBlocks];
-    // if (newStockedBlocks.length > 21) {
-    //   newStockedBlocks.splice(0, stockedBlocks.length - 21);
-    // } else if (newStockedBlocks.length < 21) {
-    //   newStockedBlocks.concat(createArray(10, 21 - stockedBlocks.length, 0));
-    // }
     for (let i = 0; i < floatingBlockSize ** 2; i++) {
       const x: number = i % floatingBlockSize;
       const y: number = Math.floor(i / floatingBlockSize);
-      if (floatingBlock.shape[y][x]) {
-        // if (newStockedBlocks[y] === undefined) {
-        //   newStockedBlocks = createArray(10, 1, 0).concat(newStockedBlocks);
-        // }
-        newStockedBlocks[y + floatingBlock.position.top + 3][x + floatingBlock.position.left] =
-          floatingBlock.type;
+      if (turnArray(floatingBlock.shape, floatingBlock.rotate)[y][x]) {
+        newStockedBlocks[y + topPosition + 3][x + floatingBlock.position.left] = floatingBlock.type;
       }
     }
     setStockedBlocks(newStockedBlocks);
-  };
+  }, [floatingBlock, floatingBlockSize, stockedBlocks, topPosition]);
 
-  const putFloatingBlocks = () => {
-    if (canPutDown) {
+  const putFloatingBlocks = useCallback(() => {
+    if (!canMove(0, 1)) {
       setFloatingBlock({
-        ...floatingBlock,
-        position: {
-          top: floatingBlock.position.top + 1,
-          left: floatingBlock.position.left,
-        },
-      });
-    } else {
-      setFloatingBlock({
-        ...mino[floatingBlock.type === 7 ? 1 : floatingBlock.type],
+        ...mino[floatingBlock.type === 7 ? 0 : floatingBlock.type],
         position: {
           top: 1,
           left: 3,
         },
+        startTurn: turnCount,
         rotate: 0,
       });
       stockBlock();
     }
-  };
+  }, [canMove, floatingBlock, stockBlock, turnCount]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      putFloatingBlocks();
-    }, 300);
-    return () => clearInterval(timer);
-  });
+    putFloatingBlocks();
+  }, [turnCount, putFloatingBlocks]);
 
-  return { board };
+  useEffect(() => {
+    const keydown = (event: WindowEventMap['keydown']) => {
+      const moveBlock = (x: number, y: number) => {
+        setFloatingBlock({
+          ...floatingBlock,
+          position: {
+            top: floatingBlock.position.top + y,
+            left: floatingBlock.position.left + x,
+          },
+        });
+        putFloatingBlocks();
+      };
+      if (event.key === 'ArrowRight' && canMove(1, 0)) {
+        moveBlock(1, 0);
+      }
+      if (event.key === 'ArrowLeft' && canMove(-1, 0)) {
+        moveBlock(-1, 0);
+      }
+      if (event.key === 'ArrowDown' && canMove(0, 1)) {
+        moveBlock(0, 1);
+      }
+      if (event.key === 'ArrowUp' && canMove(0, -1)) {
+        setFloatingBlock({
+          ...floatingBlock,
+          rotate: floatingBlock.rotate + 90,
+        });
+        console.table(turnArray(floatingBlock.shape, floatingBlock.rotate));
+      }
+    };
+
+    window.addEventListener('keydown', keydown);
+    return () => {
+      window.removeEventListener('keydown', keydown);
+    };
+  }, [floatingBlock, canMove, putFloatingBlocks]);
+
+  return { board, floatingBlock };
 };

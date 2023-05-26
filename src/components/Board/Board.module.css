@@ -3,13 +3,11 @@
   display: grid;
   grid-template: 0.2fr repeat(20, 1fr) / repeat(10, 1fr);
   height: 100%;
-  background-color: #0003;
   padding: 1px;
+  border: solid 1px #0003;
 }
 
 .cell {
-  background-color: #fff;
-  border: 1px solid #00000004;
   transition: background-color ease 0.2s;
 }
 
