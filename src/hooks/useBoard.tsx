@@ -5,7 +5,7 @@ import { turnArray } from '../utils/turnArray';
 import { useTurn } from './useTurn';
 
 export const useBoard = () => {
-  const [stockedBlocks, setStockedBlocks] = useState(createArray(10, 24, 0));
+  const [stockedBlocks, setStockedBlocks] = useState<number[][]>(createArray(10, 24, 0));
   const [floatingBlock, setFloatingBlock] = useState({
     ...mino[0],
     startTurn: 0,
@@ -22,107 +22,91 @@ export const useBoard = () => {
     return turnCount - floatingBlock.startTurn + floatingBlock.position.top;
   }, [floatingBlock, turnCount]);
 
-  const filledLine: number[] = useMemo(() => {
-    const filledLine: number[] = [];
-    for (let i = 0; i < stockedBlocks.length; i++) {
-      filledLine.push(i);
-    }
-    return filledLine;
-  }, [stockedBlocks]);
-
-  const floatingBlockSize: number = useMemo(() => {
-    return floatingBlock.shape.length;
-  }, [floatingBlock]);
-
-  const board: number[][] = useMemo(() => {
-    const board: number[][] = createArray(10, 21, 0);
-    for (let y = 3; y < 24; y++) {
-      for (let x = 0; x < 10; x++) {
-        board[y - 3][x] = stockedBlocks[y][x];
+  const board: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][] = useMemo(() => {
+    const board: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][] = createArray(10, 21, 0).map(
+      (y: number[], indexY: number) => {
+        return y.map((x: number, indexX: number) => stockedBlocks[indexY + 3][indexX]);
       }
-    }
+    ) as (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][];
+    const floatingBlockSize: number = floatingBlock.shape.length;
     for (let i = 0; i < floatingBlockSize ** 2; i++) {
       const x: number = i % floatingBlockSize;
       const y: number = Math.floor(i / floatingBlockSize);
-      if (board[y + topPosition] === undefined) {
-        break;
-      }
-      if (!board[y + topPosition][x + floatingBlock.position.left]) {
-        board[y + topPosition][x + floatingBlock.position.left] = turnArray(
+      if (
+        board[y + topPosition] !== undefined &&
+        !board[y + topPosition][x + floatingBlock.position.left]
+      ) {
+        board[y + topPosition][x + floatingBlock.position.left] = (turnArray(
           floatingBlock.shape,
           floatingBlock.rotate
-        )[y][x]
-          ? floatingBlock.type
-          : 0;
+        )[y][x] * floatingBlock.type) as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
       }
     }
     return board;
-  }, [floatingBlock, stockedBlocks, topPosition, floatingBlockSize]);
+  }, [stockedBlocks, floatingBlock, topPosition]);
 
   const canMove = useCallback(
-    (toX: -1 | 0 | 1, toY: -1 | 0 | 1): boolean => {
-      const edgeFloatingBlock: number[][] = turnArray(floatingBlock.shape, floatingBlock.rotate);
-      for (let i = 0; i < floatingBlockSize ** 2; i++) {
-        const x: number = i % floatingBlockSize;
-        const y: number = Math.floor(i / floatingBlockSize);
-        const terms: boolean[] = [
-          turnArray(floatingBlock.shape, floatingBlock.rotate)[y][x] === 1,
-          turnArray(floatingBlock.shape, floatingBlock.rotate)[y + toY] !== undefined &&
-            turnArray(floatingBlock.shape, floatingBlock.rotate)[y + toY][x + toX] === 1,
-        ];
-        if (terms.every((v) => v)) {
-          edgeFloatingBlock[y][x] === 0;
-        }
-      }
-      for (let i = 0; i < floatingBlockSize ** 2; i++) {
-        const x: number = i % floatingBlockSize;
-        const y: number = Math.floor(i / floatingBlockSize);
-        const terms: boolean[] = [
-          edgeFloatingBlock[y][x] === 1,
-          board[y + topPosition + toY] === undefined ||
-            stockedBlocks[y + topPosition + toY + 3][x + floatingBlock.position.left + toX] !== 0,
-        ];
-        if (terms.every((v) => v)) {
-          return false;
-        }
-      }
-      return true;
+    (toX: 1 | 0 | -1, toY: 1 | 0 | -1) => {
+      const turnedBlock: number[][] = turnArray(floatingBlock.shape, floatingBlock.rotate);
+      const edgeFloatingBlock = turnedBlock.map((row: number[], y: number) => {
+        return row.map((block: number, x: number) => {
+          const terms: boolean[] = [
+            turnedBlock[y][x] === 1,
+            turnedBlock[y + toY] !== undefined && turnedBlock[y + toY][x + toX] === 1,
+          ];
+          return terms.every((v) => v) || !turnedBlock[y][x] ? 0 : 1; // eslint-disable-line max-nested-callbacks
+        });
+      });
+      return edgeFloatingBlock
+        .map((row: number[], y: number) => {
+          return row.filter((block: number, x: number) => {
+            if (block !== 0) {
+              const terms = [
+                stockedBlocks[y + topPosition + toY + 3] === undefined,
+                stockedBlocks[y + topPosition + toY + 3] !== undefined &&
+                  stockedBlocks[y + topPosition + toY + 3][
+                    x + floatingBlock.position.left + toX
+                  ] !== 0,
+              ];
+              return terms.some((v) => v); // eslint-disable-line max-nested-callbacks
+            }
+          });
+        })
+        .every((v) => !v.length);
     },
-    [board, floatingBlock, floatingBlockSize, stockedBlocks, topPosition]
+    [floatingBlock, stockedBlocks, topPosition]
   );
 
   const stockBlock = useCallback(() => {
+    const floatingBlockSize: number = floatingBlock.shape.length;
+    const turnedBlock: number[][] = turnArray(floatingBlock.shape, floatingBlock.rotate);
     const newStockedBlocks: number[][] = [...stockedBlocks];
     for (let i = 0; i < floatingBlockSize ** 2; i++) {
       const x: number = i % floatingBlockSize;
       const y: number = Math.floor(i / floatingBlockSize);
-      if (turnArray(floatingBlock.shape, floatingBlock.rotate)[y][x]) {
+      if (newStockedBlocks[y + topPosition + 3] !== undefined && turnedBlock[y][x]) {
         newStockedBlocks[y + topPosition + 3][x + floatingBlock.position.left] = floatingBlock.type;
       }
     }
     setStockedBlocks(newStockedBlocks);
-  }, [floatingBlock, floatingBlockSize, stockedBlocks, topPosition]);
-
-  const putFloatingBlocks = useCallback(() => {
-    if (!canMove(0, 1)) {
-      setFloatingBlock({
-        ...mino[floatingBlock.type === 7 ? 0 : floatingBlock.type],
-        position: {
-          top: 1,
-          left: 3,
-        },
-        startTurn: turnCount,
-        rotate: 0,
-      });
-      stockBlock();
-    }
-  }, [canMove, floatingBlock, stockBlock, turnCount]);
+  }, [floatingBlock, stockedBlocks, topPosition]);
 
   useEffect(() => {
-    putFloatingBlocks();
-  }, [turnCount, putFloatingBlocks]);
-
-  useEffect(() => {
+    const changeMino = () => {
+      if (!canMove(0, 1)) {
+        setFloatingBlock({
+          ...mino[floatingBlock.type % 7],
+          position: {
+            top: 1,
+            left: 3,
+          },
+          startTurn: turnCount,
+          rotate: 0,
+        });
+        stockBlock();
+      }
+    };
+    changeMino();
     const keydown = (event: WindowEventMap['keydown']) => {
       const moveBlock = (x: number, y: number) => {
         setFloatingBlock({
@@ -132,8 +116,8 @@ export const useBoard = () => {
             left: floatingBlock.position.left + x,
           },
         });
-        putFloatingBlocks();
       };
+      changeMino();
       if (event.key === 'ArrowRight' && canMove(1, 0)) {
         moveBlock(1, 0);
       }
@@ -148,7 +132,6 @@ export const useBoard = () => {
           ...floatingBlock,
           rotate: floatingBlock.rotate + 90,
         });
-        console.table(turnArray(floatingBlock.shape, floatingBlock.rotate));
       }
     };
 
@@ -156,7 +139,7 @@ export const useBoard = () => {
     return () => {
       window.removeEventListener('keydown', keydown);
     };
-  }, [floatingBlock, canMove, putFloatingBlocks]);
+  }, [floatingBlock, canMove, stockBlock, turnCount]);
 
   return { board, floatingBlock };
 };
