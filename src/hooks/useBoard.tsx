@@ -22,12 +22,10 @@ export const useBoard = () => {
     return turnCount - floatingBlock.startTurn + floatingBlock.position.top;
   }, [floatingBlock, turnCount]);
 
-  const board: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][] = useMemo(() => {
-    const board: (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][] = createArray(10, 21, 0).map(
-      (y: number[], indexY: number) => {
-        return y.map((x: number, indexX: number) => stockedBlocks[indexY + 3][indexX]);
-      }
-    ) as (0 | 1 | 2 | 3 | 4 | 5 | 6 | 7)[][];
+  const board: number[][] = useMemo(() => {
+    const board: number[][] = createArray(10, 21, 0).map((y: number[], indexY: number) => {
+      return y.map((x: number, indexX: number) => stockedBlocks[indexY + 3][indexX]);
+    });
     const floatingBlockSize: number = floatingBlock.shape.length;
     for (let i = 0; i < floatingBlockSize ** 2; i++) {
       const x: number = i % floatingBlockSize;
@@ -36,10 +34,8 @@ export const useBoard = () => {
         board[y + topPosition] !== undefined &&
         !board[y + topPosition][x + floatingBlock.position.left]
       ) {
-        board[y + topPosition][x + floatingBlock.position.left] = (turnArray(
-          floatingBlock.shape,
-          floatingBlock.rotate
-        )[y][x] * floatingBlock.type) as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+        board[y + topPosition][x + floatingBlock.position.left] =
+          turnArray(floatingBlock.shape, floatingBlock.rotate)[y][x] * floatingBlock.type;
       }
     }
     return board;

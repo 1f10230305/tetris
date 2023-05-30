@@ -6,7 +6,9 @@ export const Board = () => {
   return (
     <div className={styles.board}>
       {board.map((row, y) =>
-        row.map((cell, x) => <div className={styles[`color-${board[y][x]}`]} key={`${x}_${y}`} />)
+        row.map((cell, x) => (
+          <div className={`${styles.cell} ${styles[`color-${board[y][x]}`]}`} key={`${x}_${y}`} />
+        ))
       )}
     </div>
   );
