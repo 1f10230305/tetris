@@ -1,6 +1,6 @@
 export const turnArray = (array: number[][], deg: number) => {
   const length: number = array.length;
-  const count: number = 3 - ((((deg / 90) % 4) + 4) % 4);
+  const count: number = 4 - ((((deg / 90) % 4) + 4) % 4);
 
   let rotatedArray = [...array];
   for (let i = 0; i < count; i++) {
